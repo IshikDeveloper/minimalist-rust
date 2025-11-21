@@ -8,9 +8,9 @@ description = "Ultra-lightweight browser with Flash support and memory optimizat
 [dependencies]
 # Core window and event handling
 winit = "0.28"
-wry = "0.33"  # WebView2 wrapper, very lightweight
+wry = "0.33"
 
-# UI (optional - can be removed for pure WebView)
+# UI (optional)
 egui = { version = "0.24", optional = true }
 egui-winit = { version = "0.24", optional = true }
 
@@ -19,7 +19,7 @@ tokio = { version = "1.34", features = ["rt-multi-thread", "macros"] }
 
 # URL and network handling
 url = "2.5"
-urlencoding = "2.2"
+urlencoding = "2.1"
 percent-encoding = "2.3"
 
 # Serialization
@@ -34,9 +34,6 @@ env_logger = "0.10"
 regex = "1.10"
 lazy_static = "1.4"
 
-# Flash/Ruffle support
-ruffle_core = { version = "0.1", optional = true }
-
 # Platform-specific
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.52", features = [
@@ -45,20 +42,19 @@ windows = { version = "0.52", features = [
     "Win32_System_ProcessStatus",
     "Win32_UI_WindowsAndMessaging",
 ] }
-winapi = { version = "0.3", features = ["psapi", "winuser"] }
+winapi = { version = "0.3", features = ["psapi"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.25"
 objc = "0.2"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-webkit2gtk = { version = "2.0", features = ["v2_38"] }
-gtk = "0.18"
+# wry handles webkit2gtk internally, no need to add separately
 
 [features]
 default = ["native-ui"]
 native-ui = ["egui", "egui-winit"]
-ruffle = ["ruffle_core"]
+# Removed ruffle - using CDN and JavaScript instead
 
 [profile.release]
 opt-level = 3
@@ -68,12 +64,11 @@ strip = true
 panic = "abort"
 
 [profile.release.package."*"]
-opt-level = 2  # Optimize dependencies less aggressively
+opt-level = 2
 
-# Memory optimization build settings
 [profile.minimal]
 inherits = "release"
-opt-level = "z"  # Optimize for size
+opt-level = "z"
 lto = "fat"
 strip = true
 panic = "abort"

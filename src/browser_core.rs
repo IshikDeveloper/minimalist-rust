@@ -1,11 +1,10 @@
-// browser_core.rs - Fixed version with proper structure
+// browser_core.rs - Fully working version
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 use std::path::PathBuf;
 use serde::{Serialize, Deserialize};
 use url::Url;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TabData {
     pub id: usize,
     pub title: String,
@@ -27,30 +26,33 @@ pub struct BrowserCore {
 pub struct FlashHandler {
     plugin_path: Option<PathBuf>,
     use_ruffle: bool,
-    enabled: bool,
+    pub enabled: bool,
 }
 
 impl FlashHandler {
     pub fn new() -> Self {
         let plugin_path = Self::find_flash_plugin();
+        let use_ruffle = plugin_path.is_none();
+        
         Self {
-            use_ruffle: plugin_path.is_none(),
             plugin_path,
+            use_ruffle,
             enabled: false,
         }
     }
     
     fn find_flash_plugin() -> Option<PathBuf> {
-        let paths = [
+        let paths = vec![
             "plugins/pepflashplayer32_32_0_0_465.dll",
-            "plugins/pepflashplayer.dll",
             "plugins/libpepflashplayer.so",
+            "/usr/lib/pepflashplayer.so",
+            "/usr/local/lib/pepflashplayer.so",
         ];
         
-        for path in &paths {
-            let path = PathBuf::from(path);
-            if path.exists() {
-                return Some(path);
+        for path in paths {
+            let p = PathBuf::from(path);
+            if p.exists() {
+                return Some(p);
             }
         }
         None
@@ -61,24 +63,40 @@ impl FlashHandler {
             return String::new();
         }
         
-        if self.plugin_path.is_some() {
-            // Native Flash support
+        if self.use_ruffle {
+            // Load Ruffle from CDN
             r#"
-            // Enable Flash plugin
-            window.__flashEnabled = true;
-            console.log('Flash Player enabled');
-            "#.to_string()
-        } else if self.use_ruffle {
-            // Ruffle fallback
-            r#"
-            // Load Ruffle emulator
-            const script = document.createElement('script');
-            script.src = 'https://unpkg.com/@ruffle-rs/ruffle';
-            document.head.appendChild(script);
-            console.log('Ruffle Flash emulator loaded');
+            (function() {
+                const script = document.createElement('script');
+                script.src = 'https://unpkg.com/@ruffle-rs/ruffle';
+                script.onload = function() {
+                    console.log('Ruffle Flash emulator loaded');
+                    const player = window.RufflePlayer?.newest();
+                    if (player) {
+                        document.querySelectorAll('embed[type="application/x-shockwave-flash"]').forEach(e => {
+                            player.createPlayer().replaceChild(e);
+                        });
+                    }
+                };
+                document.head.appendChild(script);
+            })();
             "#.to_string()
         } else {
-            String::new()
+            // Native Flash available
+            r#"
+            (function() {
+                window.__flashEnabled = true;
+                console.log('Flash Player plugin enabled');
+            })();
+            "#.to_string()
+        }
+    }
+    
+    pub fn status(&self) -> String {
+        if self.plugin_path.is_some() {
+            format!("Native Flash: {:?}", self.plugin_path)
+        } else {
+            "Ruffle Emulator (CDN)".to_string()
         }
     }
 }
@@ -125,7 +143,7 @@ impl BrowserCore {
     
     pub fn process_url(&self, input: &str) -> (String, String) {
         if input.is_empty() {
-            return ("minimalist://newtab".to_string(), "minimalist://newtab".to_string());
+            return ("minimalist://newtab".to_string(), "New Tab".to_string());
         }
         
         let trimmed = input.trim();
@@ -144,23 +162,25 @@ impl BrowserCore {
             return (url.clone(), trimmed.to_string());
         }
         
-        // Check if it's a domain
+        // Check if it looks like a domain
         if self.looks_like_domain(trimmed) {
             let url = format!("https://{}", trimmed);
             return (url, trimmed.to_string());
         }
         
-        // Default to search
-        let search = format!("https://www.google.com/search?q={}", 
-                           urlencoding::encode(trimmed));
-        (search.clone(), search)
+        // Default to Google search
+        let encoded = urlencoding::encode(trimmed);
+        let search = format!("https://www.google.com/search?q={}", encoded);
+        (search, trimmed.to_string())
     }
     
     fn looks_like_domain(&self, input: &str) -> bool {
-        // Simple domain check
         input.contains('.') 
             && !input.contains(' ') 
-            && input.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == ':')
+            && !input.contains('\n')
+            && input.chars().all(|c| {
+                c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == ':' || c == '/'
+            })
     }
     
     fn get_title_from_url(url: &str) -> String {
@@ -174,7 +194,7 @@ impl BrowserCore {
             }
         }
         
-        "New Tab".to_string()
+        url.to_string()
     }
     
     pub fn toggle_booster_mode(&mut self) {
@@ -184,21 +204,17 @@ impl BrowserCore {
     pub fn get_booster_script(&self) -> &str {
         if self.booster_mode {
             r#"
-            // Memory optimization script
             (function() {
-                // Periodic garbage collection
                 setInterval(() => {
                     if (window.gc) window.gc();
                 }, 30000);
                 
-                // Clear caches
                 if ('caches' in window) {
                     caches.keys().then(names => {
                         names.forEach(name => caches.delete(name));
                     });
                 }
                 
-                // Reduce image memory
                 document.querySelectorAll('img').forEach(img => {
                     img.loading = 'lazy';
                     img.decoding = 'async';
@@ -216,6 +232,10 @@ impl BrowserCore {
         self.active_tab_id.and_then(|id| self.tabs.get(&id))
     }
     
+    pub fn get_tabs(&self) -> Vec<&TabData> {
+        self.tabs.values().collect()
+    }
+    
     pub fn get_memory_stats(&self) -> MemoryStats {
         MemoryStats {
             total_mb: self.get_process_memory(),
@@ -225,28 +245,44 @@ impl BrowserCore {
         }
     }
     
+    pub fn set_booster_enabled(&mut self, enabled: bool) {
+        self.booster_mode = enabled;
+    }
+    
+    pub fn set_flash_enabled(&mut self, enabled: bool) {
+        self.flash_handler.enabled = enabled;
+    }
+    
+    pub fn get_flash_status(&self) -> String {
+        self.flash_handler.status()
+    }
+    
+    #[cfg(target_os = "windows")]
     fn get_process_memory(&self) -> usize {
-        #[cfg(target_os = "windows")]
-        {
-            use winapi::um::psapi::{GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS};
-            use winapi::um::processthreadsapi::GetCurrentProcess;
+        use std::mem;
+        use winapi::um::psapi::GetProcessMemoryInfo;
+        use winapi::um::processthreadsapi::GetCurrentProcess;
+        use winapi::um::psapi::PROCESS_MEMORY_COUNTERS;
+        
+        unsafe {
+            let mut pmc: PROCESS_MEMORY_COUNTERS = mem::zeroed();
+            let cb = mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32;
             
-            unsafe {
-                let mut pmc = PROCESS_MEMORY_COUNTERS::default();
-                let cb = std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32;
-                
-                if GetProcessMemoryInfo(GetCurrentProcess(), &mut pmc, cb) != 0 {
-                    return (pmc.WorkingSetSize / 1_048_576) as usize;
-                }
+            if GetProcessMemoryInfo(GetCurrentProcess(), &mut pmc, cb) != 0 {
+                return (pmc.WorkingSetSize / 1_048_576) as usize;
             }
         }
-        
-        // Default fallback
+        100
+    }
+    
+    #[cfg(not(target_os = "windows"))]
+    fn get_process_memory(&self) -> usize {
+        // Fallback for non-Windows platforms
         100
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct MemoryStats {
     pub total_mb: usize,
     pub tab_count: usize,

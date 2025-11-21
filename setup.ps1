@@ -31,27 +31,38 @@ if (!(Test-Path "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F30172
 
 # Download Flash Player
 Write-Host "Downloading Flash Player 32.0.0.465..." -ForegroundColor Green
-$flash_url = "https://archive.org/download/flashplayerarchive/pub/flashplayer/installers/archive/fp_32.0.0.465_archive/flashplayer32_0r0_465_win.exe"
 $flash_dll = "plugins\pepflashplayer32_32_0_0_465.dll"
 
 if (!(Test-Path $flash_dll)) {
     try {
-        # Alternative: Direct DLL download (if available)
-        $dll_url = "https://archive.org/download/flashplayer_old/pepflashplayer32_32_0_0_465.dll"
-        Invoke-WebRequest -Uri $dll_url -OutFile $flash_dll -ErrorAction Stop
-        Write-Host "Flash Player downloaded successfully!" -ForegroundColor Green
+        # Try direct DLL download from Archive.org
+        $dll_url = "https://archive.org/download/flashplayerarchivedversions2/99/fp_11.7.700.242_archive.zip/fp_11.7.700.242_archive%2F11_7_r700_242%2Fflashplayer_11_7r700_242_win.exe"
+        Write-Host "Attempting to download Flash from: $dll_url" -ForegroundColor Yellow
+        Invoke-WebRequest -Uri $dll_url -OutFile "flash_installer.exe" -ErrorAction Stop
+        Write-Host "Flash installer downloaded. You'll need to extract the DLL manually." -ForegroundColor Yellow
+        Write-Host "Or use: https://archive.org/details/flashplayerarchive" -ForegroundColor Yellow
     }
     catch {
         Write-Host "Flash download failed. Please manually download from:" -ForegroundColor Yellow
-        Write-Host "https://archive.org/details/flashplayerarchive" -ForegroundColor Yellow
-        Write-Host "Look for: flashplayer32_0r0_465_win.exe" -ForegroundColor Yellow
+        Write-Host "https://archive.org/download/flashplayerarchive/pub/flashplayer/installers/archive/fp_32.0.0.465_archive/" -ForegroundColor Yellow
+        Write-Host "" -ForegroundColor Yellow
+        Write-Host "Options:" -ForegroundColor Yellow
+        Write-Host "1. flashplayer32_0r0_465_win.exe (installer)" -ForegroundColor Yellow
+        Write-Host "2. Or directly: pepflashplayer32_32_0_0_465.dll" -ForegroundColor Yellow
+        Write-Host "" -ForegroundColor Yellow
+        Write-Host "Place the DLL in: $flash_dll" -ForegroundColor Yellow
+        Write-Host "The browser will use Ruffle emulator as fallback." -ForegroundColor Yellow
     }
+}
+else {
+    Write-Host "Flash Player already present at $flash_dll" -ForegroundColor Green
 }
 
 # Download Ruffle
 Write-Host "Downloading Ruffle WebAssembly..." -ForegroundColor Green
 try {
     Invoke-WebRequest -Uri "https://unpkg.com/@ruffle-rs/ruffle@latest/ruffle.js" -OutFile "assets\ruffle.js"
+    Write-Host "Ruffle downloaded successfully!" -ForegroundColor Green
 }
 catch {
     Write-Host "Ruffle download failed. Browser will use CDN fallback." -ForegroundColor Yellow
@@ -65,3 +76,5 @@ Write-Host "===================================" -ForegroundColor Cyan
 Write-Host "Setup complete!" -ForegroundColor Green
 Write-Host "Run: .\target\release\minimalist-browser.exe" -ForegroundColor Yellow
 Write-Host "===================================" -ForegroundColor Cyan
+Write-Host "" -ForegroundColor Cyan
+Write-Host "Note: Flash is optional. The browser works with Ruffle emulation." -ForegroundColor Cyan
