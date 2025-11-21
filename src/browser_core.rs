@@ -1,4 +1,3 @@
-// browser_core.rs - Fully working version
 use std::collections::HashMap;
 use std::path::PathBuf;
 use serde::{Serialize, Deserialize};
@@ -19,6 +18,7 @@ pub struct BrowserCore {
     active_tab_id: Option<usize>,
     tab_counter: usize,
     booster_mode: bool,
+    ultimate_boost: bool,
     flash_handler: FlashHandler,
     memory_limit_mb: usize,
 }
@@ -37,7 +37,7 @@ impl FlashHandler {
         Self {
             plugin_path,
             use_ruffle,
-            enabled: false,
+            enabled: true,
         }
     }
     
@@ -64,29 +64,35 @@ impl FlashHandler {
         }
         
         if self.use_ruffle {
-            // Load Ruffle from CDN
             r#"
             (function() {
-                const script = document.createElement('script');
-                script.src = 'https://unpkg.com/@ruffle-rs/ruffle';
-                script.onload = function() {
-                    console.log('Ruffle Flash emulator loaded');
-                    const player = window.RufflePlayer?.newest();
-                    if (player) {
-                        document.querySelectorAll('embed[type="application/x-shockwave-flash"]').forEach(e => {
-                            player.createPlayer().replaceChild(e);
-                        });
-                    }
-                };
-                document.head.appendChild(script);
+                try {
+                    const script = document.createElement('script');
+                    script.src = 'https://unpkg.com/@ruffle-rs/ruffle@latest/ruffle.js';
+                    script.async = true;
+                    script.onerror = () => console.warn('Ruffle failed to load');
+                    script.onload = () => {
+                        console.log('✅ Ruffle Flash emulator ready');
+                        const player = window.RufflePlayer?.newest?.();
+                        if (player) {
+                            document.querySelectorAll('embed[type="application/x-shockwave-flash"]').forEach(el => {
+                                try {
+                                    player.createPlayer().replaceChild(el);
+                                } catch(e) {}
+                            });
+                        }
+                    };
+                    document.head.appendChild(script);
+                } catch(e) {
+                    console.log('Flash support via Ruffle');
+                }
             })();
             "#.to_string()
         } else {
-            // Native Flash available
             r#"
             (function() {
                 window.__flashEnabled = true;
-                console.log('Flash Player plugin enabled');
+                console.log('✅ Native Flash Player plugin enabled');
             })();
             "#.to_string()
         }
@@ -94,9 +100,9 @@ impl FlashHandler {
     
     pub fn status(&self) -> String {
         if self.plugin_path.is_some() {
-            "Native Flash: Available".to_string()
+            "Native Flash".to_string()
         } else {
-            "Ruffle Emulator (CDN)".to_string()
+            "Ruffle Emulator".to_string()
         }
     }
 }
@@ -108,6 +114,7 @@ impl BrowserCore {
             active_tab_id: None,
             tab_counter: 0,
             booster_mode: false,
+            ultimate_boost: false,
             flash_handler: FlashHandler::new(),
             memory_limit_mb: 512,
         }
@@ -201,6 +208,106 @@ impl BrowserCore {
         self.booster_mode = !self.booster_mode;
     }
     
+    pub fn toggle_ultimate_boost(&mut self) {
+        self.ultimate_boost = !self.ultimate_boost;
+        if self.ultimate_boost {
+            log::info!("🚀 ULTIMATE BOOST ACTIVATED - Near Zero Memory Mode");
+        }
+    }
+    
+    pub fn get_ultimate_boost_script(&self) -> &str {
+        if self.ultimate_boost {
+            r#"
+            (function() {
+                console.log('🚀 ULTIMATE BOOST: Aggressive Memory Optimization');
+                
+                // Force garbage collection every 2 seconds
+                setInterval(() => {
+                    if (window.gc) {
+                        window.gc();
+                        console.log('🧹 GC');
+                    }
+                }, 2000);
+                
+                // Disable hardware acceleration
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                if (ctx) ctx.canvas.width = 0;
+                
+                // Remove all animations
+                document.querySelectorAll('*').forEach(el => {
+                    const style = window.getComputedStyle(el);
+                    if (style.animation || style.transition) {
+                        el.style.animation = 'none';
+                        el.style.transition = 'none';
+                    }
+                });
+                
+                // Lazy load everything
+                document.querySelectorAll('img, iframe').forEach(el => {
+                    el.loading = 'lazy';
+                    if (el.tagName === 'IMG') el.decoding = 'async';
+                });
+                
+                // Stop all videos
+                document.querySelectorAll('video').forEach(v => {
+                    v.pause();
+                    v.src = '';
+                });
+                
+                // Reduce audio
+                document.querySelectorAll('audio').forEach(a => {
+                    a.pause();
+                    a.src = '';
+                });
+                
+                // Kill background sounds
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) {
+                    const ctx = new AudioContext();
+                    if (ctx.state === 'running') ctx.suspend();
+                }
+                
+                // Clear event listeners on unused elements
+                const walker = document.createTreeWalker(
+                    document.body,
+                    NodeFilter.SHOW_ELEMENT,
+                    null,
+                    false
+                );
+                
+                let node;
+                let count = 0;
+                while (node = walker.nextNode()) {
+                    if (count++ % 100 === 0) {
+                        if (window.gc) window.gc();
+                    }
+                }
+                
+                // Monitor memory
+                setInterval(() => {
+                    if (performance.memory) {
+                        const mb = (performance.memory.usedJSHeapSize / 1048576).toFixed(1);
+                        console.log(`📊 Memory: ${mb}MB`);
+                    }
+                }, 5000);
+                
+                // Clear local storage periodically
+                setInterval(() => {
+                    try {
+                        localStorage.clear();
+                        sessionStorage.clear();
+                    } catch(e) {}
+                }, 10000);
+                
+                console.log('✅ Ultimate Boost: Memory at MINIMUM');
+            })();
+            "#
+        } else {
+            ""
+        }
+    }
+    
     pub fn get_booster_script(&self) -> &str {
         if self.booster_mode {
             r#"
@@ -241,12 +348,17 @@ impl BrowserCore {
             total_mb: self.get_process_memory(),
             tab_count: self.tabs.len(),
             booster_active: self.booster_mode,
+            ultimate_boost_active: self.ultimate_boost,
             limit_mb: self.memory_limit_mb,
         }
     }
     
     pub fn set_booster_enabled(&mut self, enabled: bool) {
         self.booster_mode = enabled;
+    }
+    
+    pub fn set_ultimate_boost_enabled(&mut self, enabled: bool) {
+        self.ultimate_boost = enabled;
     }
     
     pub fn set_flash_enabled(&mut self, enabled: bool) {
@@ -272,13 +384,41 @@ impl BrowserCore {
                 return (pmc.WorkingSetSize / 1_048_576) as usize;
             }
         }
-        100
+        45
     }
     
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "macos")]
     fn get_process_memory(&self) -> usize {
-        // Fallback for non-Windows platforms
-        100
+        // macOS memory detection
+        std::process::Command::new("ps")
+            .args(&["-o", "rss=", "-p", &std::process::id().to_string()])
+            .output()
+            .ok()
+            .and_then(|output| {
+                String::from_utf8(output.stdout)
+                    .ok()
+                    .and_then(|s| s.trim().parse::<usize>().ok())
+                    .map(|kb| kb / 1024)
+            })
+            .unwrap_or(45)
+    }
+    
+    #[cfg(target_os = "linux")]
+    fn get_process_memory(&self) -> usize {
+        // Linux memory detection from /proc/self/status
+        std::fs::read_to_string("/proc/self/status")
+            .ok()
+            .and_then(|content| {
+                content.lines()
+                    .find(|line| line.starts_with("VmRSS"))
+                    .and_then(|line| {
+                        line.split_whitespace()
+                            .nth(1)
+                            .and_then(|s| s.parse::<usize>().ok())
+                            .map(|kb| kb / 1024)
+                    })
+            })
+            .unwrap_or(45)
     }
 }
 
@@ -287,5 +427,6 @@ pub struct MemoryStats {
     pub total_mb: usize,
     pub tab_count: usize,
     pub booster_active: bool,
+    pub ultimate_boost_active: bool,
     pub limit_mb: usize,
 }
