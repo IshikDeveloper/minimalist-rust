@@ -6,13 +6,8 @@ authors = ["Minimalist Browser Team"]
 description = "Ultra-lightweight browser with Flash support and memory optimization"
 
 [dependencies]
-# Core window and event handling
-winit = "0.28"
+# Core webview - wry includes its own windowing (tao)
 wry = "0.33"
-
-# UI (optional)
-egui = { version = "0.24", optional = true }
-egui-winit = { version = "0.24", optional = true }
 
 # Async runtime
 tokio = { version = "1.34", features = ["rt-multi-thread", "macros"] }
@@ -52,9 +47,7 @@ objc = "0.2"
 # wry handles webkit2gtk internally, no need to add separately
 
 [features]
-default = ["native-ui"]
-native-ui = ["egui", "egui-winit"]
-# Removed ruffle - using CDN and JavaScript instead
+default = []
 
 [profile.release]
 opt-level = 3
