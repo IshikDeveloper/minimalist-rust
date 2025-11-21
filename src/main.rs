@@ -28,22 +28,8 @@ fn main() -> wry::Result<()> {
         .with_inner_size(wry::application::dpi::LogicalSize::new(1280.0, 850.0))
         .build(&event_loop)?;
 
-    let webview = WebViewBuilder::new(window)?
-        .with_url("minimalist://newtab")?
-        .with_custom_protocol("minimalist".to_string(), |request| {
-            let path = request.uri().path();
-            let (content, mime_type) = match path {
-                "/newtab" => ("New Tab Page", "text/html"),
-                "/settings" => ("Settings Page", "text/html"),
-                "/memory" => ("Memory Stats", "text/html"),
-                "/flash" => ("Flash Test", "text/html"),
-                _ => ("Not Found", "text/plain"),
-            };
-            wry::http::Response::builder()
-                .header("Content-Type", mime_type)
-                .body(std::borrow::Cow::Borrowed(content.as_bytes()))
-                .unwrap()
-        })
+    let _webview = WebViewBuilder::new(window)?
+        .with_url("https://www.google.com")?
         .build()?;
 
     let mut browser = BrowserCore::new();
