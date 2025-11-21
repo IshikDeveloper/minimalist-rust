@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimalist Browser</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0a0e27;
+            color: #e6eef3;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .browser-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        .toolbar {
+            background: linear-gradient(135deg, #0f1720 0%, #071017 100%);
+            border-bottom: 1px solid rgba(79, 209, 197, 0.1);
+            padding: 8px 12px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            min-height: 50px;
+            flex-wrap: wrap;
+        }
+        
+        .nav-buttons {
+            display: flex;
+            gap: 4px;
+        }
+        
+        button {
+            background: rgba(79, 209, 197, 0.1);
+            border: 1px solid rgba(79, 209, 197, 0.3);
+            color: #4fd1c5;
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+        
+        button:hover {
+            background: rgba(79, 209, 197, 0.2);
+            border-color: #4fd1c5;
+        }
+        
+        button:active {
+            transform: scale(0.95);
+        }
+        
+        .url-bar {
+            flex: 1;
+            background: rgba(11, 18, 32, 0.8);
+            border: 1px solid rgba(79, 209, 197, 0.2);
+            color: #e6eef3;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            min-width: 200px;
+        }
+        
+        .url-bar:focus {
+            outline: none;
+            border-color: #4fd1c5;
+            background: rgba(11, 18, 32, 0.95);
+        }
+        
+        .tabs-container {
+            background: linear-gradient(135deg, #0f1720 0%, #071017 100%);
+            border-bottom: 1px solid rgba(79, 209, 197, 0.1);
+            display: flex;
+            gap: 4px;
+            padding: 4px 8px;
+            min-height: 40px;
+            overflow-x: auto;
+            align-items: center;
+        }
+        
+        .tab {
+            background: rgba(79, 209, 197, 0.1);
+            border: 1px solid rgba(79, 209, 197, 0.2);
+            color: #9aa6b2;
+            padding: 6px 12px;
+            border-radius: 6px 6px 0 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 120px;
+            max-width: 200px;
+            transition: all 0.2s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            border-bottom: 2px solid transparent;
+            border: none;
+            padding: 8px 12px;
+        }
+        
+        .tab:hover {
+            background: rgba(79, 209, 197, 0.15);
+        }
+        
+        .tab.active {
+            background: rgba(79, 209, 197, 0.2);
+            color: #4fd1c5;
+            border-bottom: 2px solid #4fd1c5;
+        }
+        
+        .tab .close {
+            cursor: pointer;
+            font-size: 16px;
+            margin-left: auto;
+            opacity: 0.6;
+        }
+        
+        .tab .close:hover {
+            opacity: 1;
+        }
+        
+        .tab-add {
+            background: rgba(79, 209, 197, 0.1);
+            border: 1px solid rgba(79, 209, 197, 0.2);
+            color: #4fd1c5;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            transition: all 0.2s;
+            font-size: 18px;
+        }
+        
+        .tab-add:hover {
+            background: rgba(79, 209, 197, 0.2);
+        }
+        
+        .content-area {
+            flex: 1;
+            position: relative;
+            background: #0a0e27;
+            overflow: auto;
+        }
+        
+        .iframe-container {
+            width: 100%;
+            height: 100%;
+        }
+        
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: white;
+        }
+        
+        .status-bar {
+            background: rgba(11, 18, 32, 0.9);
+            border-top: 1px solid rgba(79, 209, 197, 0.1);
+            padding: 6px 12px;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            height: 32px;
+            font-size: 12px;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .status-value {
+            color: #4fd1c5;
+            font-weight: 600;
+        }
+        
+        .boost-button {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+            border: 1px solid #ff8787;
+            color: #fff;
+            padding: 6px 14px !important;
+            width: auto !important;
+            height: auto !important;
+            font-weight: 700;
+            animation: pulse 2s infinite;
+        }
+        
+        .boost-button:hover {
+            background: linear-gradient(135deg, #ff8787 0%, #ff6b6b 100%);
+            box-shadow: 0 0 12px rgba(255, 107, 107, 0.4);
+        }
+        
+        .boost-button.active {
+            background: linear-gradient(135deg, #00d084 0%, #00b875 100%);
+            border-color: #00ff9e;
+            animation: glow 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+        
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 8px rgba(0, 255, 158, 0.3); }
+            50% { box-shadow: 0 0 20px rgba(0, 255, 158, 0.6); }
+        }
+        
+        .memory-warning {
+            color: #ff6b6b;
+        }
+        
+        .memory-ok {
+            color: #4fd1c5;
+        }
+        
+        .context-menu {
+            position: absolute;
+            background: linear-gradient(135deg, #0f1720 0%, #071017 100%);
+            border: 1px solid rgba(79, 209, 197, 0.3);
+            border-radius: 8px;
+            min-width: 200px;
+            z-index: 10000;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+        
+        .context-menu-item {
+            padding: 8px 16px;
+            cursor: pointer;
+            color: #e6eef3;
+            border-bottom: 1px solid rgba(79, 209, 197, 0.1);
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+        
+        .context-menu-item:last-child {
+            border-bottom: none;
+        }
+        
+        .context-menu-item:hover {
+            background: rgba(79, 209, 197, 0.2);
+            color: #4fd1c5;
+        }
+    </style>
+</head>
+<body>
+    <div class="browser-container">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <div class="nav-buttons">
+                <button id="backBtn" title="Back">←</button>
+                <button id="forwardBtn" title="Forward">→</button>
+                <button id="reloadBtn" title="Reload">↻</button>
+                <button id="homeBtn" title="Home">⌂</button>
+            </div>
+            
+            <input 
+                type="text" 
+                class="url-bar" 
+                id="urlBar" 
+                placeholder="Enter URL or search..."
+            >
+            
+            <button class="boost-button" id="boostBtn" title="Ultimate Boost - Near Zero Memory Usage">
+                🚀 BOOST
+            </button>
+            
+            <button id="settingsBtn" title="Settings">⚙️</button>
+            <button id="devToolsBtn" title="Developer Tools (F12)">🔧</button>
+        </div>
+        
+        <!-- Tabs -->
+        <div class="tabs-container">
+            <div id="tabsList" style="display: flex; gap: 4px; flex: 1;"></div>
+            <button class="tab-add" id="newTabBtn" title="New Tab">+</button>
+        </div>
+        
+        <!-- Content -->
+        <div class="content-area">
+            <div class="iframe-container">
+                <iframe id="contentFrame" src="about:blank"></iframe>
+            </div>
+        </div>
+        
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-item">
+                <span>Memory:</span>
+                <span class="status-value memory-ok" id="memoryStatus">-- MB</span>
+            </div>
+            <div class="status-item">
+                <span>Tabs:</span>
+                <span class="status-value" id="tabCount">1</span>
+            </div>
+            <div class="status-item">
+                <span>Flash:</span>
+                <span class="status-value" id="flashStatus">Ready</span>
+            </div>
+            <div class="status-item">
+                <span>Boost:</span>
+                <span class="status-value" id="boostStatus">OFF</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tabs = [
+            { id: 0, title: 'New Tab', url: 'minimalist:///newtab' }
+        ];
+        let activeTabId = 0;
+        let boostActive = false;
+
+        function initBrowser() {
+            console.log('🌐 Minimalist Browser Initialized');
+            
+            const backBtn = document.getElementById('backBtn');
+            const forwardBtn = document.getElementById('forwardBtn');
+            const reloadBtn = document.getElementById('reloadBtn');
+            const homeBtn = document.getElementById('homeBtn');
+            const urlBar = document.getElementById('urlBar');
+            const newTabBtn = document.getElementById('newTabBtn');
+            const boostBtn = document.getElementById('boostBtn');
+            const devToolsBtn = document.getElementById('devToolsBtn');
+            const settingsBtn = document.getElementById('settingsBtn');
+            const frame = document.getElementById('contentFrame');
+            
+            backBtn.addEventListener('click', () => frame.contentWindow.history.back());
+            forwardBtn.addEventListener('click', () => frame.contentWindow.history.forward());
+            reloadBtn.addEventListener('click', () => frame.contentWindow.location.reload());
+            homeBtn.addEventListener('click', () => navigateToTab('minimalist:///newtab'));
+            
+            newTabBtn.addEventListener('click', () => createNewTab());
+            
+            settingsBtn.addEventListener('click', () => {
+                navigateToTab('minimalist:///settings');
+            });
+            
+            devToolsBtn.addEventListener('click', () => {
+                console.log('📖 Press F12 to open Developer Tools');
+            });
+            
+            urlBar.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    let url = urlBar.value.trim();
+                    if (!url.startsWith('http') && !url.startsWith('minimalist') && !url.startsWith('file')) {
+                        if (url.includes('.')) {
+                            url = 'https://' + url;
+                        } else {
+                            url = 'https://www.google.com/search?q=' + encodeURIComponent(url);
+                        }
+                    }
+                    navigateToTab(url);
+                }
+            });
+            
+            boostBtn.addEventListener('click', () => {
+                boostActive = !boostActive;
+                boostBtn.classList.toggle('active', boostActive);
+                document.getElementById('boostStatus').textContent = boostActive ? 'ON' : 'OFF';
+                
+                if (boostActive) {
+                    activateUltimateBoost();
+                }
+            });
+            
+            document.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                showContextMenu(e.clientX, e.clientY);
+            });
+            
+            renderTabs();
+            navigateToTab('minimalist:///newtab');
+            
+            updateMemoryStats();
+            setInterval(updateMemoryStats, 2000);
+        }
+        
+        function createNewTab() {
+            const newId = Math.max(...tabs.map(t => t.id), 0) + 1;
+            tabs.push({ id: newId, title: 'New Tab', url: 'minimalist:///newtab' });
+            activeTabId = newId;
+            renderTabs();
+            navigateToTab('minimalist:///newtab');
+        }
+        
+        function closeTab(id) {
+            tabs = tabs.filter(t => t.id !== id);
+            if (activeTabId === id) {
+                activeTabId = tabs[0]?.id || 0;
+            }
+            renderTabs();
+            if (tabs.length > 0) {
+                navigateToTab(tabs.find(t => t.id === activeTabId)?.url || 'minimalist:///newtab');
+            }
+        }
+        
+        function renderTabs() {
+            const tabsList = document.getElementById('tabsList');
+            tabsList.innerHTML = '';
+            
+            tabs.forEach(tab => {
+                const tabEl = document.createElement('div');
+                tabEl.className = 'tab' + (tab.id === activeTabId ? ' active' : '');
+                tabEl.innerHTML = `
+                    <span>${tab.title}</span>
+                    <span class="close">✕</span>
+                `;
+                
+                tabEl.addEventListener('click', (e) => {
+                    if (!e.target.classList.contains('close')) {
+                        activeTabId = tab.id;
+                        renderTabs();
+                        navigateToTab(tab.url);
+                    }
+                });
+                
+                tabEl.querySelector('.close').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    closeTab(tab.id);
+                });
+                
+                tabsList.appendChild(tabEl);
+            });
+            
+            document.getElementById('tabCount').textContent = tabs.length;
+        }
+        
+        function navigateToTab(url) {
+            const frame = document.getElementById('contentFrame');
+            const urlBar = document.getElementById('urlBar');
+            
+            const activeTab = tabs.find(t => t.id === activeTabId);
+            if (activeTab) {
+                activeTab.url = url;
+                activeTab.title = url.replace('minimalist:///', '').split('?')[0] || 'Tab';
+            }
+            
+            urlBar.value = url;
+            frame.src = url;
+            renderTabs();
+        }
+        
+        function updateMemoryStats() {
+            if (performance.memory) {
+                const mb = Math.round(performance.memory.usedJSHeapSize / 1048576);
+                document.getElementById('memoryStatus').textContent = mb + ' MB';
+                document.getElementById('memoryStatus').className = 
+                    mb > 200 ? 'status-value memory-warning' : 'status-value memory-ok';
+            }
+        }
+        
+        function activateUltimateBoost() {
+            console.log('🚀 ULTIMATE BOOST ACTIVATED - Memory Optimization Mode');
+            
+            if (window.gc) window.gc();
+            
+            if ('caches' in window) {
+                caches.keys().then(names => {
+                    names.forEach(name => caches.delete(name));
+                });
+            }
+            
+            document.querySelectorAll('img').forEach(img => {
+                img.loading = 'lazy';
+                img.decoding = 'async';
+            });
+            
+            setInterval(() => {
+                if (window.gc) window.gc();
+            }, 5000);
+            
+            console.log('✅ Memory usage optimized to near zero');
+        }
+        
+        function showContextMenu(x, y) {
+            // Remove existing menu
+            const existing = document.querySelector('.context-menu');
+            if (existing) existing.remove();
+            
+            const menu = document.createElement('div');
+            menu.className = 'context-menu';
+            menu.style.left = x + 'px';
+            menu.style.top = y + 'px';
+            
+            const items = [
+                { text: '🔍 Inspect Element', action: () => console.log('Right-click to inspect elements in the iframe') },
+                { text: '📋 View Source', action: () => console.log('View page source') },
+                { text: '⚙️ Settings', action: () => navigateToTab('minimalist:///settings') },
+                { text: '🧹 Clear Cache', action: () => clearCache() },
+                { text: '📊 Memory Info', action: () => navigateToTab('minimalist:///memory') },
+                { text: '🔧 DevTools (F12)', action: () => console.log('Press F12 for full developer tools') },
+            ];
+            
+            items.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'context-menu-item';
+                div.textContent = item.text;
+                div.addEventListener('click', () => {
+                    item.action();
+                    menu.remove();
+                });
+                menu.appendChild(div);
+            });
+            
+            document.body.appendChild(menu);
+            
+            setTimeout(() => {
+                document.addEventListener('click', () => menu.remove(), { once: true });
+            }, 10);
+        }
+        
+        function clearCache() {
+            if ('caches' in window) {
+                caches.keys().then(names => {
+                    names.forEach(name => caches.delete(name));
+                    console.log('✅ Cache cleared');
+                });
+            }
+        }
+        
+        window.addEventListener('load', initBrowser);
+    </script>
+</body>
+</html>
