@@ -94,7 +94,7 @@ impl FlashHandler {
     
     pub fn status(&self) -> String {
         if self.plugin_path.is_some() {
-            format!("Native Flash: {:?}", self.plugin_path)
+            "Native Flash: Available".to_string()
         } else {
             "Ruffle Emulator (CDN)".to_string()
         }

@@ -37,7 +37,7 @@ windows = { version = "0.52", features = [
     "Win32_System_ProcessStatus",
     "Win32_UI_WindowsAndMessaging",
 ] }
-winapi = { version = "0.3", features = ["psapi"] }
+winapi = { version = "0.3", features = ["psapi", "processthreadsapi"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.25"

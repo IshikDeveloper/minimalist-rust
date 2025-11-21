@@ -30,7 +30,7 @@ fn main() -> wry::Result<()> {
 
     let webview = WebViewBuilder::new(window)?
         .with_url("minimalist://newtab")?
-        .with_custom_protocol("minimalist", |request| {
+        .with_custom_protocol("minimalist".to_string(), |request| {
             let path = request.uri().path();
             let (content, mime_type) = match path {
                 "/newtab" => ("New Tab Page", "text/html"),
@@ -39,9 +39,10 @@ fn main() -> wry::Result<()> {
                 "/flash" => ("Flash Test", "text/html"),
                 _ => ("Not Found", "text/plain"),
             };
-            Ok(wry::http::Response::builder()
+            wry::http::Response::builder()
                 .header("Content-Type", mime_type)
-                .body(content.as_bytes().to_vec())?)
+                .body(std::borrow::Cow::Borrowed(content.as_bytes()))
+                .unwrap()
         })
         .build()?;
 
